@@ -7,7 +7,7 @@ tracking:
   pixels: 5000
   iters: 200
   vis_inside_freq: 200
-  sample_with_color_grad: True
+  sample_with_color_grad: False
 mapping:
   every_frame: 2
   vis_freq: 40
