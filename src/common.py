@@ -159,8 +159,8 @@ def get_selected_index_with_grad(H0, H1, W0, W1, n, image, ratio=15, gt_depth=No
     return selected_index, grad_mag
 
 
-def get_samples(H0, H1, W0, W1, n, fx, fy, cx, cy, c2w, depth, color, device,
-                depth_filter=False, return_index=False, depth_limit=None):
+def get_samples(H0, H1, W0, W1, n, fx, fy, cx, cy, c2w, depth, color, mask, device,
+                depth_filter=False, return_index=False, depth_limit=None): # Add mask after color
     """
     Get n rays from the image region H0..H1, W0..W1.
     fx, fy, cx, cy: intrinsics.
@@ -183,8 +183,8 @@ def get_samples(H0, H1, W0, W1, n, fx, fy, cx, cy, c2w, depth, color, device,
     return rays_o, rays_d, sample_depth, sample_color
 
 
-def get_samples_with_pixel_grad(H0, H1, W0, W1, n_color, H, W, fx, fy, cx, cy, c2w, depth, color, device,
-                                depth_filter=True, return_index=True, depth_limit=None):
+def get_samples_with_pixel_grad(H0, H1, W0, W1, n_color, H, W, fx, fy, cx, cy, c2w, depth, color, mask, device,
+                                depth_filter=True, return_index=True, depth_limit=None): # Add mask after color
     """
     Get n rays from the image region H0..H1, W0..W1 based on color gradients, normal map gradients and random selection
     H, W: height, width.

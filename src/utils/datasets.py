@@ -87,7 +87,9 @@ class BaseDataset(Dataset):
     def __getitem__(self, index):
         color_path = self.color_paths[index]
         depth_path = self.depth_paths[index]
+        mask_path = self.mask_paths[index] # Add Mask
         color_data = cv2.imread(color_path)
+        mask_data = cv2.imread(mask_path) # Add Mask
         if '.png' in depth_path:
             depth_data = cv2.imread(depth_path, cv2.IMREAD_UNCHANGED)
         elif '.exr' in depth_path:
@@ -99,26 +101,34 @@ class BaseDataset(Dataset):
 
         color_data = cv2.cvtColor(color_data, cv2.COLOR_BGR2RGB)
         color_data = color_data / 255.
+        mask_data = cv2.cvtColor(mask_data, cv2.COLOR_BGR2RGB) # Add Mask, Keep 0-255 scale
         depth_data = depth_data.astype(np.float32) / self.png_depth_scale
         H, W = depth_data.shape
         color_data = cv2.resize(color_data, (W, H))
         color_data = torch.from_numpy(color_data)
+        mask_data = cv2.resize(mask_data, (W, H)) # Add Mask
+        mask_data = torch.from_numpy(mask_data)
         depth_data = torch.from_numpy(depth_data)
         if self.crop_size is not None:
             # follow the pre-processing step in lietorch, actually is resize
             color_data = color_data.permute(2, 0, 1)
             color_data = F.interpolate(
                 color_data[None], self.crop_size, mode='bilinear', align_corners=True)[0]
+            mask_data = mask_data.permute(2, 0, 1) # Add Mask
+            mask_data = F.interpolate(
+                mask_data[None], self.crop_size, mode='bilinear', align_corners=True)[0] 
             depth_data = F.interpolate(
                 depth_data[None, None], self.crop_size, mode='nearest')[0, 0]
             color_data = color_data.permute(1, 2, 0).contiguous()
+            mask_data = mask_data.permute(1, 2, 0).contiguous() # Add Mask
 
         edge = self.crop_edge
         if edge > 0:
             color_data = color_data[edge:-edge, edge:-edge]
+            mask_data = mask_data[edge:-edge, edge:-edge] # Add Mask
             depth_data = depth_data[edge:-edge, edge:-edge]
         pose = self.poses[index]
-        return index, color_data.to(self.device), depth_data.to(self.device), pose.to(self.device)
+        return index, color_data.to(self.device), depth_data.to(self.device), pose.to(self.device), mask_data.to(self.device)
 
 
 class Replica(BaseDataset):
@@ -189,7 +199,7 @@ class TUM_RGBD(BaseDataset):
     def __init__(self, cfg, args, device='cuda:0'
                  ):
         super(TUM_RGBD, self).__init__(cfg, args, device)
-        self.color_paths, self.depth_paths, self.poses = self.loadtum(
+        self.color_paths, self.depth_paths, self.poses, self.mask_paths = self.loadtum(
             self.input_folder, frame_rate=32)
         self.n_img = len(self.color_paths)
 
@@ -227,14 +237,17 @@ class TUM_RGBD(BaseDataset):
 
         image_list = os.path.join(datapath, 'rgb.txt')
         depth_list = os.path.join(datapath, 'depth.txt')
+        mask_list = os.path.join(datapath, 'mask.txt') # Generate with Mask
 
         image_data = self.parse_list(image_list)
         depth_data = self.parse_list(depth_list)
+        mask_data = self.parse_list(mask_list) # Add Mask
         pose_data = self.parse_list(pose_list, skiprows=1)
         pose_vecs = pose_data[:, 1:].astype(np.float64)
 
         tstamp_image = image_data[:, 0].astype(np.float64)
         tstamp_depth = depth_data[:, 0].astype(np.float64)
+        tstamp_mask = mask_data[:, 0].astype(np.float64) # Add Mask
         tstamp_pose = pose_data[:, 0].astype(np.float64)
         associations = self.associate_frames(
             tstamp_image, tstamp_depth, tstamp_pose)
@@ -247,11 +260,13 @@ class TUM_RGBD(BaseDataset):
                 indicies += [i]
 
         images, poses, depths, intrinsics = [], [], [], []
+        masks = [] # Add Mask
         inv_pose = None
         for ix in indicies:
             (i, j, k) = associations[ix]
             images += [os.path.join(datapath, image_data[i, 1])]
             depths += [os.path.join(datapath, depth_data[j, 1])]
+            masks += [os.path.join(datapath, image_data[i, 1])] # Mask is binded with rgb
             c2w = self.pose_matrix_from_quaternion(pose_vecs[k])
             if inv_pose is None:
                 inv_pose = np.linalg.inv(c2w)
@@ -269,7 +284,7 @@ class TUM_RGBD(BaseDataset):
             c2w = torch.from_numpy(c2w).float()
             poses += [c2w]
 
-        return images, depths, poses
+        return images, depths, poses, masks # Return Mask
 
     def pose_matrix_from_quaternion(self, pvec):
         """ convert 4x4 pose matrix to (t, q) """

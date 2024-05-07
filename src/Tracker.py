@@ -86,8 +86,8 @@ class Tracker(object):
     def set_pipe(self, pipe):
         self.pipe = pipe
 
-    def optimize_cam_in_batch(self, camera_tensor, gt_color, gt_depth, batch_size, optimizer,
-                              selected_index=None):
+    def optimize_cam_in_batch(self, camera_tensor, gt_color, gt_depth, gt_mask, batch_size, optimizer,
+                              selected_index=None): # Add mask
         """
         Do one iteration of camera iteration. Sample pixels, render depth/color, calculate loss and backpropagation.
 
@@ -131,7 +131,7 @@ class Tracker(object):
             batch_rays_o, batch_rays_d, batch_gt_depth, batch_gt_color, i, j = get_samples(
                 Hedge, H-Hedge, Wedge, W - Wedge,
                 batch_size,
-                self.fx, self.fy, self.cx, self.cy, c2w, gt_depth, gt_color, device,
+                self.fx, self.fy, self.cx, self.cy, c2w, gt_depth, gt_color, gt_mask, device,
                 depth_filter=True, return_index=True, depth_limit=5.0 if self.depth_limit else None)
 
         if self.use_dynamic_radius:
@@ -219,7 +219,7 @@ class Tracker(object):
         else:
             pbar = tqdm(self.frame_loader)
 
-        for idx, gt_color, gt_depth, gt_c2w in pbar:
+        for idx, gt_color, gt_depth, gt_c2w, gt_mask in pbar:
             if not self.verbose:
                 pbar.set_description(f"Tracking Frame {idx[0].item()}")
 
@@ -334,7 +334,7 @@ class Tracker(object):
                         camera_tensor = torch.cat(
                             [self.quad, self.T], 0).to(self.device)
 
-                    loss, color_loss_pixel, geo_loss_pixel = self.optimize_cam_in_batch(camera_tensor, gt_color, gt_depth, self.tracking_pixels,
+                    loss, color_loss_pixel, geo_loss_pixel = self.optimize_cam_in_batch(camera_tensor, gt_color, gt_depth, gt_mask, self.tracking_pixels,
                                                                                         optimizer_camera, selected_index=selected_index)
 
                     if cam_iter == 0:

@@ -167,7 +167,7 @@ class Mapper(object):
 
         return np.where(mask)[0].tolist()
 
-    def keyframe_selection_overlap(self, gt_color, gt_depth, c2w, keyframe_dict, k, N_samples=8, pixels=200):
+    def keyframe_selection_overlap(self, gt_color, gt_depth, gt_mask, c2w, keyframe_dict, k, N_samples=8, pixels=200):
         """
         Select overlapping keyframes to the current camera observation.
 
@@ -188,7 +188,7 @@ class Mapper(object):
 
         rays_o, rays_d, gt_depth, gt_color = get_samples(
             0, H, 0, W, pixels,
-            fx, fy, cx, cy, c2w, gt_depth, gt_color, self.device, depth_filter=True)
+            fx, fy, cx, cy, c2w, gt_depth, gt_color, gt_mask, self.device, depth_filter=True)
 
         gt_depth = gt_depth.reshape(-1, 1)
         gt_depth = gt_depth.repeat(1, N_samples)
@@ -234,7 +234,7 @@ class Mapper(object):
             np.array(selected_keyframe_list))[:k])
         return selected_keyframe_list
 
-    def optimize_map(self, num_joint_iters, idx, cur_gt_color, cur_gt_depth, gt_cur_c2w,
+    def optimize_map(self, num_joint_iters, idx, cur_gt_color, cur_gt_depth, cur_gt_mask, gt_cur_c2w,
                      keyframe_dict, keyframe_list, cur_c2w, color_refine=False):
         """
         Mapping iterations. Sample pixels from selected keyframes,
@@ -270,7 +270,7 @@ class Mapper(object):
             elif self.keyframe_selection_method == 'overlap':
                 num = self.mapping_window_size-2
                 optimize_frame = self.keyframe_selection_overlap(
-                    cur_gt_color, cur_gt_depth, cur_c2w, keyframe_dict[:-1], num)
+                    cur_gt_color, cur_gt_depth, cur_gt_mask, cur_c2w, keyframe_dict[:-1], num) # Add Mask
 
         # add the last keyframe and the current frame(use -1 to denote)
         oldest_frame = None
@@ -302,6 +302,7 @@ class Mapper(object):
         gt_depth_np = cur_gt_depth.cpu().numpy()
         gt_depth = cur_gt_depth.to(device)
         gt_color = cur_gt_color.to(device)
+        gt_mask = cur_gt_mask.to(device)
 
         if idx == 0:
             add_pts_num = torch.clamp(self.pixels_adding * ((gt_depth.median()/2.5)**2),
@@ -310,7 +311,7 @@ class Mapper(object):
             add_pts_num = self.pixels_adding
         batch_rays_o, batch_rays_d, batch_gt_depth, batch_gt_color, i, j = get_samples(
             0, H, 0, W, add_pts_num,
-            fx, fy, cx, cy, cur_c2w, gt_depth, gt_color, self.device, depth_filter=True, return_index=True)
+            fx, fy, cx, cy, cur_c2w, gt_depth, gt_color, gt_mask, self.device, depth_filter=True, return_index=True)
 
         if not color_refine:
             frame_pts_add = 0
@@ -323,7 +324,7 @@ class Mapper(object):
 
                 batch_rays_o, batch_rays_d, batch_gt_depth, batch_gt_color, i, j = get_samples_with_pixel_grad(
                     0, H, 0, W, self.pixels_based_on_color_grad,
-                    H, W, fx, fy, cx, cy, cur_c2w, gt_depth, gt_color, self.device,
+                    H, W, fx, fy, cx, cy, cur_c2w, gt_depth, gt_color, gt_mask, self.device,
                     depth_filter=True, return_index=True)
                 _ = self.npc.add_neural_points(batch_rays_o, batch_rays_d, batch_gt_depth, batch_gt_color,
                                                is_pts_grad=True, dynamic_radius=self.dynamic_r_add[j, i] if self.use_dynamic_radius else None)
@@ -477,7 +478,7 @@ class Mapper(object):
 
                 batch_rays_o, batch_rays_d, batch_gt_depth, batch_gt_color, i, j = get_samples(
                     0, H, 0, W, pixs_per_image,
-                    fx, fy, cx, cy, c2w, gt_depth, gt_color, self.device, depth_filter=True, return_index=True)
+                    fx, fy, cx, cy, c2w, gt_depth, gt_color, gt_mask, self.device, depth_filter=True, return_index=True)
                 batch_rays_o_list.append(batch_rays_o.float())
                 batch_rays_d_list.append(batch_rays_d.float())
                 batch_gt_depth_list.append(batch_gt_depth.float())
@@ -657,7 +658,7 @@ class Mapper(object):
             wandb.watch((self.decoders.geo_decoder,
                         self.decoders.color_decoder), criterion=None, log="all")
         self.exposure_feat_all = ([] if self.encode_exposure else None)
-        _, gt_color, gt_depth, gt_c2w = self.frame_reader[0]
+        _, gt_color, gt_depth, gt_c2w, gt_mask = self.frame_reader[0]
 
         self.estimate_c2w_list[0] = gt_c2w.cpu()
         init = True
@@ -681,7 +682,7 @@ class Mapper(object):
                 print("Mapping Frame ", idx.item())
                 print(Style.RESET_ALL)
 
-            _, gt_color, gt_depth, gt_c2w = self.frame_reader[idx.item()]
+            _, gt_color, gt_depth, gt_c2w, gt_mask = self.frame_reader[idx.item()]
 
             if self.use_dynamic_radius:
                 ratio = self.radius_query_ratio
@@ -732,7 +733,7 @@ class Mapper(object):
                 self.BA = (len(self.keyframe_list) >
                            4) and cfg['mapping']['BA']
 
-                _ = self.optimize_map(num_joint_iters, idx, gt_color, gt_depth, gt_c2w,
+                _ = self.optimize_map(num_joint_iters, idx, gt_color, gt_depth, gt_mask, gt_c2w,
                                       self.keyframe_dict, self.keyframe_list, cur_c2w, color_refine=color_refine)
                 if self.BA:
                     cur_c2w = _
@@ -824,7 +825,7 @@ class Mapper(object):
                     net_type='alex', normalize=True).to(self.device)
             try:
                 while render_idx < self.n_img:
-                    _, gt_color, gt_depth, gt_c2w = self.frame_reader[render_idx]
+                    _, gt_color, gt_depth, gt_c2w, gt_mask = self.frame_reader[render_idx]
                     cur_c2w = self.estimate_c2w_list[render_idx].to(
                         self.device)
 

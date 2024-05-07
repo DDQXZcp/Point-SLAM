@@ -234,7 +234,7 @@ def main():
         last_idx = (ckpt['idx']+1) if (ckpt['idx'] +
                                        1) < len(frame_reader) else len(frame_reader)
         while idx < last_idx:
-            _, gt_color, gt_depth, gt_c2w = frame_reader[idx]
+            _, gt_color, gt_depth, gt_c2w, gt_mask = frame_reader[idx]
             cur_c2w = ckpt['estimate_c2w_list'][idx].to(device)
 
             if use_exposure:
@@ -304,7 +304,7 @@ def main():
     for i, (depth, color) in enumerate(dataloader):
         index = dataset.indices[i]
         # load the gt depth from the sensor to filter the rendered depth map
-        _, gt_color, gt_depth, gt_c2w = frame_reader[cfg['mapping']
+        _, gt_color, gt_depth, gt_c2w, gt_mask = frame_reader[cfg['mapping']
                                                      ['every_frame']*i]
         gt_depth = gt_depth.cpu().numpy()
         depth = depth[0].cpu().numpy()
