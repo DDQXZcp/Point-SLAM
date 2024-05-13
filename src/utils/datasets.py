@@ -101,7 +101,9 @@ class BaseDataset(Dataset):
 
         color_data = cv2.cvtColor(color_data, cv2.COLOR_BGR2RGB)
         color_data = color_data / 255.
-        mask_data = cv2.cvtColor(mask_data, cv2.COLOR_BGR2RGB) # Add Mask, Keep 0-255 scale
+        mask_data = cv2.cvtColor(mask_data, cv2.COLOR_BGR2GRAY) # Add Mask, Keep 0-255 scale
+        mask_data = (mask_data == 255).astype(np.uint8) * 255
+
         depth_data = depth_data.astype(np.float32) / self.png_depth_scale
         H, W = depth_data.shape
         color_data = cv2.resize(color_data, (W, H))
@@ -114,13 +116,11 @@ class BaseDataset(Dataset):
             color_data = color_data.permute(2, 0, 1)
             color_data = F.interpolate(
                 color_data[None], self.crop_size, mode='bilinear', align_corners=True)[0]
-            mask_data = mask_data.permute(2, 0, 1) # Add Mask
             mask_data = F.interpolate(
-                mask_data[None], self.crop_size, mode='bilinear', align_corners=True)[0] 
+                mask_data[None, None], self.crop_size, mode='nearest')[0, 0] # Add Mask
             depth_data = F.interpolate(
                 depth_data[None, None], self.crop_size, mode='nearest')[0, 0]
             color_data = color_data.permute(1, 2, 0).contiguous()
-            mask_data = mask_data.permute(1, 2, 0).contiguous() # Add Mask
 
         edge = self.crop_edge
         if edge > 0:
@@ -266,7 +266,7 @@ class TUM_RGBD(BaseDataset):
             (i, j, k) = associations[ix]
             images += [os.path.join(datapath, image_data[i, 1])]
             depths += [os.path.join(datapath, depth_data[j, 1])]
-            masks += [os.path.join(datapath, image_data[i, 1])] # Mask is binded with rgb
+            masks += [os.path.join(datapath, mask_data[i, 1])] # Mask is binded with rgb
             c2w = self.pose_matrix_from_quaternion(pose_vecs[k])
             if inv_pose is None:
                 inv_pose = np.linalg.inv(c2w)

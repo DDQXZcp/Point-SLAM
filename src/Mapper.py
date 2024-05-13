@@ -324,7 +324,7 @@ class Mapper(object):
 
                 batch_rays_o, batch_rays_d, batch_gt_depth, batch_gt_color, i, j = get_samples_with_pixel_grad(
                     0, H, 0, W, self.pixels_based_on_color_grad,
-                    H, W, fx, fy, cx, cy, cur_c2w, gt_depth, gt_color, gt_mask, self.device,
+                    H, W, fx, fy, cx, cy, cur_c2w, gt_depth, gt_color, self.device,
                     depth_filter=True, return_index=True)
                 _ = self.npc.add_neural_points(batch_rays_o, batch_rays_d, batch_gt_depth, batch_gt_color,
                                                is_pts_grad=True, dynamic_radius=self.dynamic_r_add[j, i] if self.use_dynamic_radius else None)

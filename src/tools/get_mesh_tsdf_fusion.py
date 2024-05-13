@@ -237,6 +237,8 @@ def main():
             _, gt_color, gt_depth, gt_c2w, gt_mask = frame_reader[idx]
             cur_c2w = ckpt['estimate_c2w_list'][idx].to(device)
 
+            gt_depth[gt_mask == 255] = 0
+
             if use_exposure:
                 try:
                     state_dict = torch.load(f'{slam.output}/ckpts/color_decoder/{idx:05}.pt',
@@ -307,11 +309,13 @@ def main():
         _, gt_color, gt_depth, gt_c2w, gt_mask = frame_reader[cfg['mapping']
                                                      ['every_frame']*i]
         gt_depth = gt_depth.cpu().numpy()
+        gt_mask = gt_mask.cpu().numpy()
         depth = depth[0].cpu().numpy()
         # the rendered depth map is not accurate in areas where no sensor
         # depth was observed. Set the rendered pixels to 0 where the
         # no sensor depth exists.
         depth[gt_depth == 0] = 0
+        depth[gt_mask == 255] = 0
         color = color[0].cpu().numpy()
         c2w = ckpt['estimate_c2w_list'][index].cpu().numpy()
 
