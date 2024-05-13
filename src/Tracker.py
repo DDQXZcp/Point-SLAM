@@ -226,6 +226,7 @@ class Tracker(object):
             idx = idx[0]
             gt_depth = gt_depth[0]
             gt_color = gt_color[0]
+            gt_mask = gt_mask[0] # Add mask here
             gt_c2w = gt_c2w[0]
 
             if self.lazy_start:
