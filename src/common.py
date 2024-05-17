@@ -61,31 +61,16 @@ def select_uv(i, j, n, depth, color, mask, device='cuda:0'):
     Select n pixels (u,v) from dense (u,v).
 
     """
-    # Flatten the tensors
     i = i.reshape(-1)
     j = j.reshape(-1)
+    indices = torch.randint(i.shape[0], (n,), device=device)
+    indices = indices.clamp(0, i.shape[0])
+    i = i[indices]
+    j = j[indices]
     depth = depth.reshape(-1)
     color = color.reshape(-1, 3)
-    mask = mask.reshape(-1)
-
-    # Filter out the indices where mask is 255
-    valid_indices = (mask != 255)
-
-    # Apply the filter
-    i = i[valid_indices]
-    j = j[valid_indices]
-    depth = depth[valid_indices]
-    color = color[valid_indices]
-
-    # Check if there are at least n valid samples
-    if i.shape[0] >= n:
-        # Randomly sample n indices from the valid samples
-        indices = torch.randint(0, i.shape[0], (n,), device=device)
-        i = i[indices]
-        j = j[indices]
-        depth = depth[indices]
-        color = color[indices]
-    # If there aren't enough valid samples, return all valid samples
+    depth = depth[indices]
+    color = color[indices]
     return i, j, depth, color
 
 

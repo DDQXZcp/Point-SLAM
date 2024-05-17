@@ -89,7 +89,7 @@ class BaseDataset(Dataset):
         depth_path = self.depth_paths[index]
         mask_path = self.mask_paths[index] # Add Mask
         color_data = cv2.imread(color_path)
-        mask_data = cv2.imread(mask_path) # Add Mask
+        mask_data = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE) # Add Mask
         if '.png' in depth_path:
             depth_data = cv2.imread(depth_path, cv2.IMREAD_UNCHANGED)
         elif '.exr' in depth_path:
@@ -101,10 +101,10 @@ class BaseDataset(Dataset):
 
         color_data = cv2.cvtColor(color_data, cv2.COLOR_BGR2RGB)
         color_data = color_data / 255.
-        mask_data = cv2.cvtColor(mask_data, cv2.COLOR_BGR2GRAY) # Add Mask, Keep 0-255 scale
-        mask_data = (mask_data == 255).astype(np.uint8) * 255
+        mask_data = (mask_data < 128).astype(np.uint8)
 
         depth_data = depth_data.astype(np.float32) / self.png_depth_scale
+        depth_data *= mask_data
         H, W = depth_data.shape
         color_data = cv2.resize(color_data, (W, H))
         color_data = torch.from_numpy(color_data)
