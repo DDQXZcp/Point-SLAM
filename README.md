@@ -1,3 +1,41 @@
+## Project Overview
+
+This project is for DICTA 2024 Paper:
+
+- Zhiheng Tang (CSIRO), Chuong Nguyen (CSIRO), Sundaram Muthu (CSIRO), “Dynamic SLAM using video object segmentation: A low-cost setup for mobile robots,” DICTA 2024, Perth, Australia.
+
+SLAM approaches, whether traditional, deep learning-based, or incorporating radiance field representations, face a common challenge in handling dynamic scenes due to their assumption of a static environment.While some methods have attempted dynamic SLAM, they often rely on single-object semantic segmentation, which is effective only for known object classes with prior knowledge of their static or dynamic nature. To address this limitation, we propose incorporating video object segmentation methods into our approach, which combines segmentation and tracking.
+
+To demonstrate the effectiveness of our method, we conduct an experimental study using the TUM-RGBD dataset and our RoverLab dynamic SLAM dataset, showcasing an enhancement in SLAM accuracy.
+
+## Feature
+
+We integrate dynamic object masking into Point-SLAM to prevent Neural Points from dynamic objects from being added to the Neural Point Cloud, as demonstrated by the rendered depth and RGB images.
+
+![alt text](<Part a of SLAM_framework_final.png>)
+
+![alt text](point_mesh_NoMask.png)
+
+![alt text](point_mesh_Mask.png)
+
+The following files are modified.
+- common.py
+
+The strategy is to overwrite the depth value of masked points to 0, so they are automatically ignored by the point sampler.
+
+## How to Run
+
+~~~
+python run.py configs/TUM_RGBD/freiburg3_walking_static.yaml
+~~~
+
+## Acknowledgement
+
+This project enhance Point-SLAM's performance by masking dynamic objects. The original project description is below.
+
+
+## Features
+
 <!-- PROJECT LOGO -->
 
 <p align="center">
